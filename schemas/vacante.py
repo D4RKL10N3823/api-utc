@@ -29,6 +29,7 @@ class VacanteResponse(VacanteBase):
     match_score: Optional[float] = None
     match_cos: Optional[float] = None
     match_bm25: Optional[float] = None
+    match_overlap: float | None = None
     match_terms: Optional[List[str]] = None
 
     class Config:

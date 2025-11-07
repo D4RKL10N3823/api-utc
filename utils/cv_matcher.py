@@ -11,7 +11,13 @@ from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, util
 from io import BytesIO
 
-nlp = spacy.load("es_core_news_md")
+try:
+    nlp = spacy.load("es_core_news_md")
+except OSError:
+    import spacy.cli
+    spacy.cli.download("es_core_news_md")
+    nlp = spacy.load("es_core_news_md")
+
 EMB = SentenceTransformer("intfloat/multilingual-e5-large")
 
 SEC_PATTERNS = [
@@ -23,18 +29,46 @@ SEC_PATTERNS = [
     (r'(?im)^(perfil|resumen|about)\b', 'perfil'),
 ]
 
-BANWORDS = {
-  "experiencia","experiencia laboral","educacion","formacion","estudios",
+BANWORDS = {unidecode(w.lower()) for w in {
+  "experiencia","experiencia laboral","educación","formación","estudios",
   "habilidades","skills","competencias","certificaciones","cursos","perfil","resumen",
   "objetivo","funciones","responsabilidades","actividades","requisitos","otros",
   "proyectos","portafolio","portfolio","contacto","datos","referencias",
-  "conocimiento","conocimientos","manejo","uso","experto","intermedio","basico",
+  "conocimiento","conocimientos","manejo","uso","experto","intermedio","básico",
   "excelente","avanzado","principiante","años","año"
-}
+}}
 ALIASES = {
     "js":"javascript","node js":"node.js","nodejs":"node.js",
     "ms excel":"excel","ms word":"word","ms powerpoint":"powerpoint"
 }
+
+
+def ensure_nltk_data():
+    """
+    Verifica y descarga automáticamente recursos NLTK, checando la ruta adecuada
+    para cada paquete (corpora / tokenizers / taggers).
+    """
+    paths = {
+        "stopwords": "corpora/stopwords",
+        "punkt": "tokenizers/punkt",
+        "punkt_tab": "tokenizers/punkt_tab",
+        "wordnet": "corpora/wordnet",
+        "omw-1.4": "corpora/omw-1.4",
+        "averaged_perceptron_tagger": "taggers/averaged_perceptron_tagger",
+    }
+    for pkg, path in paths.items():
+        try:
+            nltk.data.find(path)
+        except LookupError:
+            try:
+                print(f"📦 Descargando NLTK: {pkg}")
+                nltk.download(pkg, quiet=True)
+            except Exception as e:
+                print(f"⚠️ No se pudo descargar {pkg}: {e}")
+
+# Ejecuta al importar
+ensure_nltk_data()
+
 
 # ---------- helpers de texto ----------
 def read_pdf_text(fp: Path) -> str:
@@ -108,10 +142,12 @@ def dedup_fuzzy(phrases, threshold=88):
     return canon
 
 def mine_skills(blocks):
-    weighted=[]
+    weighted = []
     for b in blocks:
-        w = 1.4 if b["title"]=="habilidades" else 1.2 if b["title"]=="experiencia" else 1.0
-        if b["text"]: weighted.append(((b["text"]+"\n")*int(w)))
+        # usa enteros 2/2/1 como refuerzo real de texto
+        w = 2 if b["title"] == "habilidades" else 2 if b["title"] == "experiencia" else 1
+        if b["text"]:
+            weighted.append((b["text"] + "\n") * w)
     txt = "\n".join(weighted)
     merged = dedup_fuzzy(list(set(keyphrases_spacy(txt) + keyphrases_rake(txt))))
     merged = [p for p in merged if p not in BANWORDS and is_good_phrase(p)]
@@ -141,24 +177,31 @@ def prepare_index(cvs):
     return {"bm25": bm25, "embs": embs, "texts": texts}
 
 def overlap_score(cv_terms, jd_terms):
-    scr=0.0
+    scr = 0.0
     for s in cv_terms:
         m = process.extractOne(s, jd_terms, scorer=fuzz.token_set_ratio)
-        if m and m[1] >= 90: scr += 1.0 if " " in s else 0.6
+        if m and m[1] >= 90:
+            scr += 1.0 if " " in s else 0.6
     return scr
 
-def hybrid_rank(jd_text, index, topk=5, alpha=0.5, beta=0.25, gamma=0.25, cv_skill_list=None, jd_terms=None):
+def hybrid_rank(jd_text, index, topk=5, alpha=0.5, beta=0.25, gamma=0.25,
+                cv_skill_list=None, jd_terms_list=None):
     q_emb = EMB.encode(f"query: {jd_text}", normalize_embeddings=True)
     cos = util.cos_sim(q_emb, index["embs"]).cpu().numpy().ravel()
     bm  = index["bm25"].get_scores(jd_text.lower().split())
-    ol  = np.zeros_like(cos)
-    if cv_skill_list is not None and jd_terms is not None:
-        raw = np.array([overlap_score(sk, jd_terms) for sk in cv_skill_list], dtype=float)
-        if raw.max() > 0: ol = raw / raw.max()
-    # normalizar
-    cos_n = (cos - cos.min())/(cos.max()-cos.min()+1e-9)
-    bm_n  = (bm  - bm.min()) /(bm.max() -bm.min() +1e-9)
-    final = alpha*cos_n + beta*bm_n + gamma*ol
+
+    # --- solapa por documento ---
+    ol = np.zeros_like(cos)
+    if cv_skill_list is not None and jd_terms_list is not None:
+        ol_raw = np.array([overlap_score(cv_skill_list, terms) for terms in jd_terms_list], dtype=float)
+        if ol_raw.max() > 0:
+            ol = (ol_raw - ol_raw.min()) / (ol_raw.max() - ol_raw.min() + 1e-9)
+
+    # normaliza cos/bm25
+    cos_n = (cos - cos.min()) / (cos.max() - cos.min() + 1e-9)
+    bm_n  = (bm  - bm.min())  / (bm.max()  - bm.min()  + 1e-9)
+
+    final = alpha * cos_n + beta * bm_n + gamma * ol
     order = np.argsort(-final)[:topk]
     return order, final[order], cos[order], bm[order], ol[order]
 

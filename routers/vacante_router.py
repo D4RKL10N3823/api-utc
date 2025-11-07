@@ -18,13 +18,18 @@ router = APIRouter(
 
 @router.get("/", response_model=List[VacanteResponse])
 def get_all_vacantes(
-    skip: int = Query(0, ge=0, description="Número de registros a saltar"),
-    limit: int = Query(100, ge=1, le=1000, description="Límite de registros"),
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user) # Este get_current_user viene de auth_service
+    usuario_id: int | None = Query(None, description="ID"),
+    topk: int = 100,
+    orden: str = "probabilidad"
 ):
-    """Obtiene todas las vacantes con paginación"""
-    return VacanteService.get_all_vacantes(db, skip, limit)
+    """
+    Obtiene todas las vacantes.
+    Si se pasa un usuario_id válido y orden='probabilidad', las ordena de mayor a menor match.
+    """
+    if usuario_id and orden == "probabilidad":
+        return VacanteService.list_for_user_ranked(db, usuario_id, topk=topk)
+    return VacanteService.get_all_vacantes(db, limit=topk)
 
 
 @router.get("/search", response_model=List[VacanteResponse])

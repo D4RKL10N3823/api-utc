@@ -19,6 +19,7 @@ ecdsa==0.19.1
 fastapi==0.121.0
 filelock==3.20.0
 fsspec==2025.10.0
+gunicorn==23.0.0
 greenlet==3.2.4
 h11==0.16.0
 huggingface-hub==0.36.0

@@ -2,7 +2,7 @@
 Schemas de Pydantic para Vacante
 """
 from pydantic import BaseModel, Field
-from typing import Optional, Any
+from typing import Optional, Any, List
 
 
 class VacanteBase(BaseModel):
@@ -25,6 +25,11 @@ class VacanteUpdate(BaseModel):
 class VacanteResponse(VacanteBase):
     """Schema de respuesta de Vacante"""
     id: int
+
+    match_score: Optional[float] = None
+    match_cos: Optional[float] = None
+    match_bm25: Optional[float] = None
+    match_terms: Optional[List[str]] = None
 
     class Config:
         from_attributes = True

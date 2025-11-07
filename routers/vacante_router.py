@@ -21,14 +21,15 @@ def get_all_vacantes(
     db: Session = Depends(get_db),
     usuario_id: int | None = Query(None, description="ID"),
     topk: int = 100,
-    orden: str = "probabilidad"
+    orden: str = "probabilidad",
+    metrics: bool = False
 ):
     """
     Obtiene todas las vacantes.
     Si se pasa un usuario_id válido y orden='probabilidad', las ordena de mayor a menor match.
     """
     if usuario_id and orden == "probabilidad":
-        return VacanteService.list_for_user_ranked(db, usuario_id, topk=topk)
+        return VacanteService.list_for_user_ranked(db, usuario_id, topk=topk, with_metrics=metrics)
     return VacanteService.get_all_vacantes(db, limit=topk)
 
 

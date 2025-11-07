@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from dao.vacante_dao import VacanteDAO
 from schemas.vacante import VacanteCreate, VacanteUpdate
 from models.vacante import Vacante
-from typing import List, Optional
+from typing import List
 from fastapi import HTTPException, status
 from services.vacante_features_service import VacanteFeaturesService
 from dao.vacantes_features_dao import VacanteFeaturesDAO
@@ -99,13 +99,15 @@ class VacanteService:
         db: Session,
         usuario_id: int,
         topk: int = 100,
-        alpha: float = 0.55, beta: float = 0.35, gamma: float = 0.10
+        alpha: float = 0.55, beta: float = 0.45, gamma: float = 0.0,
+        with_metrics: bool = False
     ) -> List[Vacante]:
+        # 1) CV del usuario
         cvf = CVFeaturesDAO.get_by_usuario(db, usuario_id)
         if not cvf:
-            # sin CV → regresa normal
             return VacanteDAO.get_all(db, 0, topk)
 
+        # 2) Vacantes + sus features ya calculadas
         vacs = VacanteDAO.get_all(db, 0, 10_000)
         if not vacs:
             return []
@@ -113,32 +115,40 @@ class VacanteService:
         feats = VacanteFeaturesDAO.get_by_ids(db, [v.id for v in vacs])
         fmap = {f.vacante_id: f for f in feats}
 
-        docs_meta, embs, bm_corpus, kept = [], [], [], []
+        kept, docs = [], []
         for v in vacs:
             f = fmap.get(v.id)
-            if not f:
+            if not f or not f.jd_text:
                 continue
-            docs_meta.append({"id": str(v.id), "text": f.jd_text})
-            embs.append(f.embedding)
-            bm_corpus.append(cm.tokenize(f.jd_text))
             kept.append(v)
+            docs.append({"id": str(v.id), "text": f.jd_text})
 
-        if not docs_meta:
+        if not docs:
             return []
 
-        bm25 = cm.BM25Okapi(bm_corpus)
-        q_idx = cm.prepare_index([{"blocks":[{"title":"cv","text": cvf.texto}]}])
+        # 3) Índice de vacantes (BM25 + embeddings + términos)
+        idx, jd_terms_list = cm.build_vacante_index(docs)  # <- usa tu cv_matcher
 
-        order, final, cos, bm, ov = cm.hybrid_rank(
-            q_idx, embs, bm25, docs_meta,
-            alpha=alpha, beta=beta, gamma=gamma, topk=min(topk, len(docs_meta))
+        # 4) Rankear usando el TEXTO del CV como query
+        k = min(topk, len(docs))
+        order, final, cos, bm, _ = cm.hybrid_rank(
+            cvf.texto, idx, topk=k, alpha=alpha, beta=beta, gamma=gamma
         )
 
+        # 5) Enriquecer con score y términos "bonitos"
         ranked = []
-        for i in order:
+        for rank_pos, i in enumerate(order):
             v = kept[i]
-            # opcional: anexa info de match para el front
-            setattr(v, "match_score", round(float(final[i]), 4))
-            setattr(v, "match_terms", cm.pretty_overlap(ov, i))
+            setattr(v, "match_score", round(float(final[rank_pos]), 4))
+            try:
+                setattr(v, "match_terms", cm.pretty_overlap(cvf.skills, jd_terms_list[i], top=10))
+            except Exception:
+                setattr(v, "match_terms", [])
+
+            if with_metrics:
+                setattr(v, "match_cos", round(float(cos[rank_pos]), 4))
+                setattr(v, "match_bm25", round(float(bm[rank_pos]), 4))
+
             ranked.append(v)
+
         return ranked

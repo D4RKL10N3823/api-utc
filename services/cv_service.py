@@ -7,6 +7,7 @@ from schemas.cv import CVCreate
 from models.cv import CV
 from fastapi import HTTPException, status, UploadFile
 from typing import List
+from services.cv_features_service import CVFeaturesService
 
 
 class CVService:
@@ -38,13 +39,17 @@ class CVService:
         """Sube y guarda un nuevo CV"""
         try:
             contenido = archivo.file.read()
-            return CVDAO.create(
+            cv = CVDAO.create(
                 db,
                 usuario_id=usuario_id,
                 nombre_archivo=archivo.filename,
                 tipo=archivo.content_type,
                 archivo=contenido
             )
+        
+            CVFeaturesService.upsert_from_pdf(db, usuario_id, contenido)
+
+            return cv
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

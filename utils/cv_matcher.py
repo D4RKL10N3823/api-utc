@@ -12,13 +12,13 @@ from sentence_transformers import SentenceTransformer, util
 from io import BytesIO
 
 try:
-    nlp = spacy.load("es_core_news_md")
+    nlp = spacy.load("es_core_news_sm")
 except OSError:
     import spacy.cli
-    spacy.cli.download("es_core_news_md")
-    nlp = spacy.load("es_core_news_md")
+    spacy.cli.download("es_core_news_sm")
+    nlp = spacy.load("es_core_news_sm")
 
-EMB = SentenceTransformer("intfloat/multilingual-e5-large")
+EMB = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
 SEC_PATTERNS = [
     (r'(?im)^(experiencia|laboral|trayectoria)\b', 'experiencia'),

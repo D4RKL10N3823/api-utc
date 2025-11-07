@@ -6,5 +6,6 @@ from .usuario import Usuario
 from .empresa import Empresa
 from .postulacion import Postulacion
 from .cv import CV
+from .features import CVFeatures, VacanteFeatures
 
-__all__ = ["Vacante", "Usuario", "Empresa", "Postulacion", "CV"]
+__all__ = ["Vacante", "Usuario", "Empresa", "Postulacion", "CV", "CVFeatures", "VacanteFeatures"]

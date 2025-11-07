@@ -1,7 +1,7 @@
 """
 Router para endpoints de CV
 """
-from fastapi import APIRouter, Depends, UploadFile, Form
+from fastapi import APIRouter, Depends, UploadFile, Form, HTTPException,  File
 from sqlalchemy.orm import Session
 from database import get_db
 from services.cv_service import CVService
@@ -41,14 +41,14 @@ def obtener_cvs_usuario(
 @router.post("/", response_model=CVResponse, status_code=201)
 def subir_cv(
     usuario_id: int = Form(...),
-    archivo: UploadFile = None,
+    archivo: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
     """Sube un nuevo CV"""
     if archivo is None:
         raise HTTPException(status_code=400, detail="Debes enviar un archivo PDF")
-    if archivo.content_type != "application/pdf":
+    if archivo.content_type not in ("application/pdf", "application/octet-stream"):
         raise HTTPException(status_code=400, detail="Solo se permiten archivos PDF")
     return CVService.upload_cv(db, usuario_id, archivo)
 

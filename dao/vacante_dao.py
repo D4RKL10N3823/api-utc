@@ -3,7 +3,8 @@ DAO para operaciones de base de datos de Vacante
 """
 from sqlalchemy.orm import Session
 from models.vacante import Vacante
-from typing import List, Optional
+from typing import List, Optional, Any
+import json
 
 
 class VacanteDAO:
@@ -20,8 +21,14 @@ class VacanteDAO:
         return db.query(Vacante).filter(Vacante.id == vacante_id).first()
 
     @staticmethod
-    def create(db: Session, nombre_empresa: str, datos_vacante: Optional[str] = None) -> Vacante:
+    def create(db: Session, nombre_empresa: str, datos_vacante: Optional[Any] = None) -> Vacante:
         """Crea una nueva vacante"""
+        if isinstance(datos_vacante, str):
+            try:
+                datos_vacante = json.loads(datos_vacante)
+            except json.JSONDecodeError:
+                pass
+
         vacante = Vacante(
             nombre_empresa=nombre_empresa,
             datos_vacante=datos_vacante
@@ -36,7 +43,7 @@ class VacanteDAO:
         db: Session,
         vacante_id: int,
         nombre_empresa: Optional[str] = None,
-        datos_vacante: Optional[str] = None
+        datos_vacante: Optional[Any] = None
     ) -> Optional[Vacante]:
         """Actualiza una vacante existente"""
         vacante = VacanteDAO.get_by_id(db, vacante_id)

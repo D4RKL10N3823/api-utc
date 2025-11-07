@@ -7,5 +7,7 @@ from .auth_service import AuthService
 from .empresa_service import EmpresaService
 from .postulacion_service import PostulacionService
 from .cv_service import CVService
+from .cv_features_service import CVFeaturesService
+from .vacante_features_service import VacanteFeaturesService
 
-__all__ = ["VacanteService", "UsuarioService", "AuthService", "EmpresaService", "PostulacionService", "CVService"]
+__all__ = ["VacanteService", "UsuarioService", "AuthService", "EmpresaService", "PostulacionService", "CVService", "CVFeaturesService", "VacanteFeaturesService"]

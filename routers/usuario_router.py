@@ -18,7 +18,7 @@ router = APIRouter(
 
 @router.get("/me", response_model=UsuarioResponse)
 def get_current_usuario(
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user) # Este get_current_user viene de auth_service
 ):
     """Obtiene la información del usuario actual (token)"""
     return current_user

@@ -1,21 +1,23 @@
-[project]
+[tool.poetry]
 name = "api"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "Your Name",email = "you@example.com"}
-]
+authors = ["Your Name <you@example.com>"]
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "fastapi (>=0.121.0,<0.122.0)",
-    "uvicorn (>=0.38.0,<0.39.0)",
-    "passlib[argon2] (>=1.7.4,<2.0.0)",
-    "sqlalchemy (>=2.0.44,<3.0.0)",
-    "python-jose (>=3.5.0,<4.0.0)",
-    "argon2-cffi (>=25.1.0,<26.0.0)"
-]
+package-mode = false
 
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.121.0"
+uvicorn = "^0.38.0"
+passlib = {extras = ["argon2"], version = "^1.7.4"}
+sqlalchemy = "^2.0.44"
+python-jose = "^3.5.0"
+argon2-cffi = "^25.1.0"
+psycopg2-binary = "^2.9.11"
+pydantic = "^2.12.4"
+python-multipart = "^0.0.20"
+python-dotenv = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

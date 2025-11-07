@@ -99,7 +99,7 @@ class VacanteService:
         db: Session,
         usuario_id: int,
         topk: int = 100,
-        alpha: float = 0.55, beta: float = 0.45, gamma: float = 0.0,
+        alpha: float = 0.55, beta: float = 0.45, gamma: float = 0.15,
         with_metrics: bool = False
     ) -> List[Vacante]:
         # 1) CV del usuario
@@ -130,9 +130,11 @@ class VacanteService:
         idx, jd_terms_list = cm.build_vacante_index(docs)  # <- usa tu cv_matcher
 
         # 4) Rankear usando el TEXTO del CV como query
+        gamma_eff = gamma if (getattr(cvf, "skills", None) and len(cvf.skills) > 0) else 0.0
+
         k = min(topk, len(docs))
-        order, final, cos, bm, _ = cm.hybrid_rank(
-            cvf.texto, idx, topk=k, alpha=alpha, beta=beta, gamma=gamma
+        order, final, cos, bm, ol = cm.hybrid_rank(
+            cvf.texto, idx, topk=k, alpha=alpha, beta=beta, gamma=gamma_eff, cv_skill_list=cvf.skills, jd_terms_list=jd_terms_list 
         )
 
         # 5) Enriquecer con score y términos "bonitos"
@@ -148,6 +150,7 @@ class VacanteService:
             if with_metrics:
                 setattr(v, "match_cos", round(float(cos[rank_pos]), 4))
                 setattr(v, "match_bm25", round(float(bm[rank_pos]), 4))
+                setattr(v, "match_overlap", round(float(ol[rank_pos]), 4))
 
             ranked.append(v)
 

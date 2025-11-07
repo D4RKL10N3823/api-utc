@@ -33,6 +33,19 @@ def get_all_vacantes(
     return VacanteService.get_all_vacantes(db, limit=topk)
 
 
+@router.get("/general", response_model=List[VacanteResponse])
+def get_all_vacantes_general(
+    skip: int = Query(0, ge=0, description="Número de registros a saltar"),
+    limit: int = Query(100, ge=1, le=1000, description="Límite de registros"),
+    db: Session = Depends(get_db)
+):
+    """
+    Obtiene todas las vacantes directamente de la base de datos.
+    Sin filtros ni ordenamiento por probabilidad, solo paginación básica.
+    """
+    return VacanteService.get_all_vacantes(db, skip=skip, limit=limit)
+
+
 @router.get("/search", response_model=List[VacanteResponse])
 def search_vacantes(
     empresa: str = Query(..., description="Nombre de la empresa a buscar"),

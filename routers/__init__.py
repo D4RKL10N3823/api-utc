@@ -6,5 +6,6 @@ from .usuario_router import router as usuario_router
 from .auth_router import router as auth_router
 from .empresa_router import router as empresa_router
 from .postulacion_router import router as postulacion_router
+from .cv_router import router as cv_router
 
-__all__ = ["vacante_router", "usuario_router", "auth_router", "postulacion_router"]
+__all__ = ["vacante_router", "usuario_router", "auth_router", "postulacion_router", "cv_router"]

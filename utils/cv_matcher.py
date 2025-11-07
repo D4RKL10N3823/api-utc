@@ -11,14 +11,29 @@ from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, util
 from io import BytesIO
 
-try:
-    nlp = spacy.load("es_core_news_sm")
-except OSError:
-    import spacy.cli
-    spacy.cli.download("es_core_news_sm")
-    nlp = spacy.load("es_core_news_sm")
+_nlp = None
 
-EMB = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+def get_nlp():
+    global _nlp
+    if _nlp is None:
+        import spacy
+        try:
+            _nlp = spacy.load("es_core_news_sm")
+        except OSError:
+            import spacy.cli
+            spacy.cli.download("es_core_news_sm")
+            _nlp = spacy.load("es_core_news_sm")
+    return _nlp
+
+_EMB = None
+
+def get_embedder():
+    global _EMB
+    if _EMB is None:
+        from sentence_transformers import SentenceTransformer
+        # modelo mucho más ligero que e5-large
+        _EMB = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+    return _EMB
 
 SEC_PATTERNS = [
     (r'(?im)^(experiencia|laboral|trayectoria)\b', 'experiencia'),
@@ -116,7 +131,9 @@ def is_good_phrase(p: str) -> bool:
     return True
 
 def keyphrases_spacy(text: str):
-    doc = nlp(text); cands = set()
+    nlp = get_nlp()
+    doc = nlp(text)
+    cands = set()
     for ch in doc.noun_chunks:
         p = normalize_skill(ch.text)
         if is_good_phrase(p): cands.add(p)
@@ -172,7 +189,9 @@ def prepare_index(cvs):
             w = 1.4 if b["title"]=="experiencia" else 1.3 if b["title"]=="habilidades" else 1.1 if b["title"]=="educacion" else 1.0
             parts.append((b["text"]+"\n")*int(w))
         texts.append("\n".join(parts))
+
     bm25 = BM25Okapi([t.lower().split() for t in texts])
+    EMB = get_embedder()
     embs = EMB.encode([f"passage: {t}" for t in texts], normalize_embeddings=True)
     return {"bm25": bm25, "embs": embs, "texts": texts}
 
@@ -186,24 +205,24 @@ def overlap_score(cv_terms, jd_terms):
 
 def hybrid_rank(jd_text, index, topk=5, alpha=0.5, beta=0.25, gamma=0.25,
                 cv_skill_list=None, jd_terms_list=None):
+    EMB = get_embedder()
     q_emb = EMB.encode(f"query: {jd_text}", normalize_embeddings=True)
     cos = util.cos_sim(q_emb, index["embs"]).cpu().numpy().ravel()
     bm  = index["bm25"].get_scores(jd_text.lower().split())
 
-    # --- solapa por documento ---
     ol = np.zeros_like(cos)
     if cv_skill_list is not None and jd_terms_list is not None:
         ol_raw = np.array([overlap_score(cv_skill_list, terms) for terms in jd_terms_list], dtype=float)
         if ol_raw.max() > 0:
             ol = (ol_raw - ol_raw.min()) / (ol_raw.max() - ol_raw.min() + 1e-9)
 
-    # normaliza cos/bm25
     cos_n = (cos - cos.min()) / (cos.max() - cos.min() + 1e-9)
     bm_n  = (bm  - bm.min())  / (bm.max()  - bm.min()  + 1e-9)
 
     final = alpha * cos_n + beta * bm_n + gamma * ol
     order = np.argsort(-final)[:topk]
     return order, final[order], cos[order], bm[order], ol[order]
+
 
 # ---------- serialización ----------
 def save_index(path: Path, cvs, index, cv_skill_list):

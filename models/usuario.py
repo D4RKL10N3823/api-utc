@@ -2,6 +2,7 @@
 Modelo de Usuario
 """
 from sqlalchemy import Column, Integer, String, SmallInteger
+from sqlalchemy.orm import relationship
 from database import Base
 
 
@@ -15,6 +16,8 @@ class Usuario(Base):
     carrera = Column(String(150), nullable=True)
     cuatrimestre = Column(SmallInteger, nullable=True)
     password_hash = Column(String(255), nullable=False)  # Para el auth
+
+    postulaciones = relationship("Postulacion", back_populates="usuario")
 
     def to_dict(self):
         """Convierte el modelo a diccionario (sin password)"""

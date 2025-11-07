@@ -18,20 +18,26 @@ router = APIRouter(
 
 @router.get("/", response_model=List[VacanteResponse])
 def get_all_vacantes(
-    skip: int = Query(0, ge=0, description="Número de registros a saltar"),
-    limit: int = Query(100, ge=1, le=1000, description="Límite de registros"),
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    usuario_id: int | None = Query(None, description="ID"),
+    topk: int = 100,
+    orden: str = "probabilidad",
+    metrics: bool = False
 ):
-    """Obtiene todas las vacantes con paginación"""
-    return VacanteService.get_all_vacantes(db, skip, limit)
+    """
+    Obtiene todas las vacantes.
+    Si se pasa un usuario_id válido y orden='probabilidad', las ordena de mayor a menor match.
+    """
+    if usuario_id and orden == "probabilidad":
+        return VacanteService.list_for_user_ranked(db, usuario_id, topk=topk, with_metrics=metrics)
+    return VacanteService.get_all_vacantes(db, limit=topk)
 
 
 @router.get("/search", response_model=List[VacanteResponse])
 def search_vacantes(
     empresa: str = Query(..., description="Nombre de la empresa a buscar"),
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user) # Este get_current_user viene de auth_service
 ):
     """Busca vacantes por nombre de empresa"""
     return VacanteService.search_vacantes_by_empresa(db, empresa)
@@ -41,7 +47,7 @@ def search_vacantes(
 def get_vacante(
     vacante_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user) # Este get_current_user viene de auth_service
 ):
     """Obtiene una vacante por ID"""
     return VacanteService.get_vacante_by_id(db, vacante_id)
@@ -51,7 +57,7 @@ def get_vacante(
 def create_vacante(
     vacante_data: VacanteCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user) # Este get_current_user viene de auth_service
 ):
     """Crea una nueva vacante"""
     return VacanteService.create_vacante(db, vacante_data)
@@ -62,7 +68,7 @@ def update_vacante(
     vacante_id: int,
     vacante_data: VacanteUpdate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user) # Este get_current_user viene de auth_service
 ):
     """Actualiza una vacante existente"""
     return VacanteService.update_vacante(db, vacante_id, vacante_data)
@@ -72,7 +78,7 @@ def update_vacante(
 def delete_vacante(
     vacante_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user) # Este get_current_user viene de auth_service
 ):
     """Elimina una vacante"""
     return VacanteService.delete_vacante(db, vacante_id)

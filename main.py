@@ -4,7 +4,7 @@ Aplicación principal de FastAPI
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
-from routers import vacante_router, usuario_router, auth_router
+from routers import vacante_router, usuario_router, auth_router, empresa_router
 
 # Crear la aplicación FastAPI
 app = FastAPI(
@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(usuario_router)
 app.include_router(vacante_router)
+app.include_router(empresa_router)
 
 
 @app.on_event("startup")
